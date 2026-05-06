@@ -36,13 +36,16 @@ The flow is therefore: **capture one big patch → split into intent-scoped sub-
 
 These rules are non-negotiable. Violating any of them is a bug in the skill execution.
 
-1. **No commit without explicit user approval of the intents table.** The agent MUST display the table defined in [Step 3](#step-3--present-the-intents-table-mandatory-approval-gate) and wait for the user to pick which intents to commit, in what order, with which message variant. Auto-committing all intents in one shot is forbidden, even if the agent is "sure" about the grouping.
-2. **Conventional Commits is mandatory.** Every commit message — both `short` and `full` variants — MUST follow the [Commit Message Convention](#commit-message-convention) below. No free-form messages.
-3. **After every batch of approved commits, recompute the diff and re-present the table.** The agent does not assume the previously-shown intents are still accurate after a commit lands.
-4. **If the user merges or splits intents, the agent re-presents the table and waits for approval again.** Never apply a merged/split grouping without re-confirmation.
-5. **Renames are their own intent.** A rename is committed separately from any content change to the renamed file. See [Rename Handling](#rename-handling).
-6. **Never edit `+` / `-` / context lines** while splitting. Only delete whole lines, or convert `-` to a leading-space context line per [Step 2 rule 4](#step-2--split-the-patch).
-7. **Never run `git add -p`** from inside the agent. Never use `git checkout -- <file>` to "revert and reapply" the user's work.
+1. **The working tree on disk is read-only to this skill.** Every operation writes to the **index** (`git apply --cached`) or to **history** (`git commit`). The skill MUST NOT run `git checkout`, `git restore`, `git reset --hard`, `git apply` (without `--cached`), `git stash pop`, or any command that modifies a file on disk. This is the entire reason the skill exists — LLMs natively try to "remove the changes and re-apply them step by step", and that is exactly what this skill replaces.
+2. **Scope is splitting only.** The skill MUST NOT push, fetch, pull, rebase, merge, cherry-pick, tag, or modify remotes. It only stages hunks and creates local commits.
+3. **HALT on in-progress git operations.** If the repo is mid-merge, mid-rebase, mid-cherry-pick, mid-revert, or mid-bisect (see [Preconditions](#preconditions) step 1), the skill MUST emit a warning naming the state and stop. It does **not** attempt to abort, continue, or skip the in-progress operation — that is the user's call.
+4. **No commit without explicit user approval of the intents table.** The agent MUST display the table defined in [Step 3](#step-3--present-the-intents-table-mandatory-approval-gate) and wait for the user to pick which intents to commit, in what order, with which message variant. Auto-committing all intents in one shot is forbidden, even if the agent is "sure" about the grouping.
+5. **Conventional Commits is mandatory.** Every commit message — both `short` and `full` variants — MUST follow the [Commit Message Convention](#commit-message-convention) below. No free-form messages.
+6. **After every batch of approved commits, recompute the diff and re-present the table.** The agent does not assume the previously-shown intents are still accurate after a commit lands.
+7. **If the user merges or splits intents, the agent re-presents the table and waits for approval again.** Never apply a merged/split grouping without re-confirmation.
+8. **Renames are their own intent.** A rename is committed separately from any content change to the renamed file. See [Rename Handling](#rename-handling).
+9. **Never edit `+` / `-` / context lines** while splitting. Only delete whole lines, or convert `-` to a leading-space context line per [Step 2 rule 4](#step-2--split-the-patch).
+10. **Never run `git add -p`** from inside the agent.
 
 ## Commit Message Convention
 
@@ -76,7 +79,19 @@ If a `full` variant is mandatory (breaking change, ref, or non-trivial diff), th
 
 Before doing anything else:
 
-1. Confirm the repo state and record the starting commit:
+1. **HALT-check: refuse to run during any in-progress git operation.** This skill only handles a clean-but-dirty working tree. If any of the following paths exist under `$(git rev-parse --git-dir)`, emit a warning naming the state and STOP. Do not attempt to continue, abort, or skip — that is the user's decision.
+
+   ```sh
+   GD=$(git rev-parse --git-dir)
+   for f in MERGE_HEAD REBASE_HEAD CHERRY_PICK_HEAD REVERT_HEAD BISECT_LOG \
+            rebase-merge rebase-apply; do
+     [ -e "$GD/$f" ] && echo "HALT: in-progress git operation detected ($f)." && exit 1
+   done
+   ```
+
+   Tell the user something like: _"This repo is mid-rebase (`.git/rebase-merge` exists). git-split only operates on a normal dirty working tree. Please finish or abort the rebase first, then re-run."_
+
+2. Confirm the repo state and record the starting commit:
 
    ```sh
    git status --porcelain=v1
@@ -84,25 +99,25 @@ Before doing anything else:
    git rev-parse HEAD          # record this — it is the recovery point
    ```
 
-2. Make sure nothing is already staged that would contaminate the new commits:
+3. Make sure nothing is already staged that would contaminate the new commits:
 
    ```sh
    git diff --cached --quiet || echo "INDEX NOT EMPTY"
    ```
 
-   If non-empty, ask the user whether to commit the existing index first or `git reset` to fold those changes back into the working tree.
+   If non-empty, ask the user whether to commit the existing index first or `git reset` (mixed — this does **not** touch files on disk) to fold those changes back into the working tree.
 
-3. Save a full backup of the current diff so the operation is recoverable:
+4. Capture the source-of-truth patch used by Steps 1–2. **Wipe any leftover workspace from a previous (aborted) run first** so this run starts clean:
 
    ```sh
+   rm -rf .git/intent-split
    mkdir -p .git/intent-split
    git diff > .git/intent-split/ALL.patch
-   git diff --binary > .git/intent-split/ALL.binary.patch
    ```
 
-   `ALL.patch` is the source of truth for splitting. Recovery: `git reset --hard <recorded-HEAD> && git apply .git/intent-split/ALL.binary.patch`.
+   `ALL.patch` is the working document for splitting — it is **not** a recovery artifact. Recovery never replays a patch onto disk; see [Recovery](#recovery). The whole `.git/intent-split/` directory is ephemeral and is removed on every termination path.
 
-4. Handle untracked files explicitly. `git diff` does **not** include them. List them:
+5. Handle untracked files explicitly. `git diff` does **not** include them. List them:
    ```sh
    git ls-files --others --exclude-standard
    ```
@@ -123,7 +138,7 @@ Read `ALL.patch` end to end. Build an internal hunk inventory of this shape (kep
 | 5   | src/api/{users.ts → user.ts} | (rename, no content) | renames module                 | refactor:rename-users-module |
 | 6   | src/api/user.ts              | @@ -20,4 +20,7 @@    | adds field to renamed module   | feat:user-lookup             |
 
-Intent labels are `<type>:<scope-or-topic>` and group hunks 1:1 into commits. Renames always get their own label (rule 5). Hunks that span multiple intents are duplicated in this inventory, one row per intent (see Step 2 rule 4).
+Intent labels are `<type>:<scope-or-topic>` and group hunks 1:1 into commits. Renames always get their own label (Hard Rule 8). Hunks that span multiple intents are duplicated in this inventory, one row per intent (see Step 2 rule 4).
 
 ### Step 2 — Split the patch
 
@@ -282,10 +297,10 @@ For each intent the user approved, in the user-specified order:
 git apply --check --cached --recount .git/intent-split/NN-<type>-<topic>.patch
 ```
 
-If `--check` fails, **stop immediately**, report the failure to the user, and do not touch the index. Common causes:
+If `--check` fails, **stop immediately**, do not touch the index, and follow [Recovery](#recovery) (which clears `.git/intent-split/` and resets to the recorded HEAD). Common causes:
 
-- A context line was edited → re-copy from `ALL.patch`.
-- The intent depends on an earlier intent that the user did not include in this batch → ask the user how to proceed (include the dependency, or reorder).
+- A context line was edited → fixable in the next run.
+- The intent depends on an earlier intent that the user did not include in this batch → ask the user how to proceed (include the dependency, or reorder) on the next run.
 
 On success:
 
@@ -301,7 +316,7 @@ Use the message variant the user picked for that intent (`-m` once for `short`, 
 git diff --cached --quiet && echo "index clean"
 ```
 
-If the index is not clean, the patch staged more than expected — `git reset` and stop; do not proceed to the next intent.
+If the index is not clean, the patch staged more than expected — invoke [Recovery](#recovery) and stop; do not proceed to the next intent.
 
 ### Step 5 — Recompute and re-present (loop)
 
@@ -310,7 +325,6 @@ After the **whole batch** the user approved is committed:
 1. Regenerate the source of truth:
    ```sh
    git diff > .git/intent-split/ALL.patch
-   git diff --binary > .git/intent-split/ALL.binary.patch
    rm -f .git/intent-split/[0-9]*.patch          # old sub-patches are stale
    ```
 2. Run Steps 1–3 again on the new `ALL.patch`. The intents table is re-emitted with the **remaining** intents (numbering restarts from 1). Even if only one intent remains, the table is still shown and approval is still required.
@@ -324,7 +338,7 @@ git status --porcelain=v1    # should show only files the user explicitly deferr
 git log --oneline -n 20      # confirm the intent commits in expected order
 ```
 
-Then clean up (only after the user confirms):
+Then clean up unconditionally — every termination path leaves `.git/intent-split/` empty:
 
 ```sh
 rm -rf .git/intent-split
@@ -332,27 +346,51 @@ rm -rf .git/intent-split
 
 ## Recovery
 
-If anything goes wrong mid-flow and the working tree is in an unknown state:
+Recovery is the single termination path for **any** abnormal exit: `git apply --check` failure, dirty index after commit, user abort during the approval gate, an unexpected error — anything that is not the clean Step 5 "`ALL.patch` empty" finish.
+
+The skill never modifies files on disk — `git apply --cached` writes only to the index, and `git commit` only advances `HEAD`. So the working tree at any point during the run is bit-identical to what it was when the skill started. **Recovery therefore requires zero disk operations.**
+
+Two commands, run unconditionally:
 
 ```sh
-git reset --hard <HEAD-recorded-in-preconditions>
-git apply .git/intent-split/ALL.binary.patch
+git reset <HEAD-recorded-in-preconditions>     # mixed (the default): moves HEAD, clears index, leaves files alone
+rm -rf .git/intent-split                       # wipe the ephemeral workspace
 ```
 
-This restores the exact starting state. Then restart from Step 1 with a better split.
+After recovery:
+
+- `HEAD` is back at the pre-skill commit.
+- The index is empty.
+- The working tree is unchanged — exactly as the user left it before invoking the skill.
+- `.git/intent-split/` is gone. The next run of the skill starts from a clean slate.
+
+The skill's commits are not lost data; they are recoverable from `git reflog` for the usual `gc.reflogExpire` window if the user wants them back.
+
+Do **not** use `git reset --hard`, `git checkout`, `git restore`, or `git apply` (without `--cached`) as part of recovery. None of them are needed, and all of them would violate Hard Rule 1 by writing to the working tree.
+
+### Termination paths (all converge on the cleanup above)
+
+| Exit reason                                               | Action                                                                             |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Clean finish (Step 5: `ALL.patch` empty)                  | `rm -rf .git/intent-split` (no `git reset` — the commits are the desired outcome). |
+| HALT during Preconditions (in-progress merge/rebase/…)    | Stop before creating `.git/intent-split/`. Nothing to clean.                       |
+| User aborts at the approval gate before any commit lands  | `rm -rf .git/intent-split` (no `git reset` — no commits were made).                |
+| `git apply --check` fails mid-batch                       | `git reset <recorded-HEAD>` + `rm -rf .git/intent-split`.                          |
+| Index dirty after a commit, or any other unexpected error | `git reset <recorded-HEAD>` + `rm -rf .git/intent-split`.                          |
 
 ## Anti-patterns to Avoid
 
+- **Do not** touch files on disk for any reason — no `git checkout`, no `git restore`, no `git reset --hard`, no `git apply` without `--cached`. The skill exists precisely to avoid the LLM-native "remove the file changes and re-apply them step by step" routine.
+- **Do not** push, pull, fetch, rebase, merge, cherry-pick, or modify remotes. Scope is local commit splitting only.
+- **Do not** continue when a merge / rebase / cherry-pick / revert / bisect is in progress — HALT and tell the user.
 - **Do not** auto-commit without showing the intents table and waiting for approval.
 - **Do not** invent commit messages outside Conventional Commits.
 - **Do not** apply a merge or split of intents without re-displaying the updated table.
 - **Do not** silently reorder the user's requested commit order — surface the dependency conflict instead.
 - **Do not** combine a rename with a content edit in one commit by default.
-- **Do not** `git checkout -- <file>` then re-edit it to "reapply only the feature part".
 - **Do not** use `git add -p` from inside an agent — it requires a TTY.
 - **Do not** edit `+`/`-`/context lines while splitting.
 - **Do not** commit a sub-patch without running `git apply --check` first.
-- **Do not** skip the `ALL.patch` backup. Without it, recovery is impossible.
 - **Do not** add helper scripts to this skill — the procedure is intentionally script-free so it ports to every agent platform unchanged.
 
 ## Cross-Platform Installation
