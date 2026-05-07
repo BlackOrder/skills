@@ -39,9 +39,9 @@ One skill per folder under `skills/`. Each skill is self-contained — the goal 
 
 ## Current skills
 
-| Skill                                  | Purpose                                                                                                                                                                                                                                  |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [git-split](skills/git-split/SKILL.md) | Split a mixed working tree into atomic, intent-scoped commits using `git apply --cached --recount` on split unified diffs. Mandatory user-approval gate; Conventional Commits enforced; renames committed separately from content edits. |
+| Skill                                            | Purpose                                                                                                                                                                                                                                  |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [intent-commits](skills/intent-commits/SKILL.md) | Split a mixed working tree into atomic, intent-scoped commits using `git apply --cached --recount` on split unified diffs. Mandatory user-approval gate; Conventional Commits enforced; renames committed separately from content edits. |
 
 ## Installation paths consumers will use
 
@@ -63,10 +63,10 @@ Skills in this repo do **not** pin themselves to any of these paths; the CLI han
 
 ## Commit messages (this repo)
 
-Commits to this repo follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) — same rule we enforce inside the `git-split` skill, applied to ourselves.
+Commits to this repo follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) — same rule we enforce inside the `intent-commits` skill, applied to ourselves.
 
 - **type**: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `build`, `ci`, `chore`, `style`, `revert`.
-- **scope**: the skill folder name when the change is skill-scoped (e.g. `feat(git-split): …`, `docs(git-split): …`); `repo` for cross-cutting changes (e.g. `chore(repo): rename CLAUDE.md to AGENTS.md`).
+- **scope**: the skill folder name when the change is skill-scoped (e.g. `feat(intent-commits): …`, `docs(intent-commits): …`); `repo` for cross-cutting changes (e.g. `chore(repo): rename CLAUDE.md to AGENTS.md`).
 - **description**: imperative, lowercase, no trailing period, ≤ 72 chars.
 - Body explains _why_ and is mandatory for non-trivial changes, breaking changes, or anything with a `Refs:` footer.
 - Breaking changes use `!` before the colon AND a `BREAKING CHANGE:` footer.

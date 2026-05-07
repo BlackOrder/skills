@@ -13,16 +13,16 @@ Use the [`skills`](https://github.com/vercel-labs/skills) CLI:
 npx skills add BlackOrder/skills --list
 
 # Install one skill (auto-detects which agents you have)
-npx skills add BlackOrder/skills --skill git-split
+npx skills add BlackOrder/skills --skill intent-commits
 
 # Install everything, no prompts
 npx skills add BlackOrder/skills --all
 
 # Install globally (~/<agent>/skills/) instead of into the current project
-npx skills add BlackOrder/skills --skill git-split -g
+npx skills add BlackOrder/skills --skill intent-commits -g
 
 # Target specific agents
-npx skills add BlackOrder/skills --skill git-split -a claude-code -a codex
+npx skills add BlackOrder/skills --skill intent-commits -a claude-code -a codex
 ```
 
 The CLI auto-detects every supported agent installed on your machine and writes the skill to each one's correct directory (project-scoped by default, global with `-g`).
@@ -37,20 +37,20 @@ cd your-project
 
 # Project scope — covers most agents at once
 mkdir -p .agents/skills
-ln -s ~/src/blackorder-skills/skills/git-split .agents/skills/git-split
+ln -s ~/src/blackorder-skills/skills/intent-commits .agents/skills/intent-commits
 
 # Claude Code uses its own path
 mkdir -p .claude/skills
-ln -s ~/src/blackorder-skills/skills/git-split .claude/skills/git-split
+ln -s ~/src/blackorder-skills/skills/intent-commits .claude/skills/intent-commits
 ```
 
 For the full per-agent path table, see [vercel-labs/skills → Supported Agents](https://github.com/vercel-labs/skills#supported-agents). The folder name on the destination side **must** equal the skill's `name:` field (in this repo, folder name and `name:` already match — keep them identical wherever you copy them).
 
 ## Skills
 
-| Skill                                  | What it does                                                                                                                                                                                                                                                                                                                                           |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [git-split](skills/git-split/SKILL.md) | Take a messy working tree (feature + bugfix + refactor mixed in the same files / hunks) and turn it into clean, atomic, intent-scoped commits. Uses `git apply --cached --recount` on split unified diffs — never re-edits source files. Mandatory user-approval gate, Conventional Commits enforced, renames committed separately from content edits. |
+| Skill                                            | What it does                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [intent-commits](skills/intent-commits/SKILL.md) | Take a messy working tree (feature + bugfix + refactor mixed in the same files / hunks) and turn it into clean, atomic, intent-scoped commits. Uses `git apply --cached --recount` on split unified diffs — never re-edits source files. Mandatory user-approval gate, Conventional Commits enforced, renames committed separately from content edits. |
 
 ## Repo layout
 
