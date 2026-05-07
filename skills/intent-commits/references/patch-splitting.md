@@ -17,7 +17,12 @@ These rules are what make `git apply` accept a hand-split patch.
 
    Do **not** invent or edit `index` lines.
 
-2. **Keep each `@@ ... @@` hunk header line intact**, including any function-context tail. Line counts may be wrong after splitting — that is what `--recount` is for. Never delete the header.
+2. **Keep each `@@ -A,B +C,D @@` hunk header line intact**, including any function-context tail. After splitting:
+   - The **starting line numbers** `A` and `C` must remain valid (use the originals from `ALL.patch`). `--recount` does **not** fix wrong or missing start lines.
+   - The **line counts** `B` and `D` may be wrong; that is what `--recount` repairs.
+   - Never omit, zero out (`@@ -0,0 +0,0 @@`), or strip the header. Never collapse the form to `@@ ... @@` without numbers.
+
+   If `git apply --check` rejects the sub-patch with "corrupt patch at line N" or "patch fragment without header", the cause is almost always a mangled `@@` line — fix the start numbers, do not retry with different flags.
 
 3. **Never edit `+`, `-`, or context (` `) lines.** Copy them byte-for-byte.
 
