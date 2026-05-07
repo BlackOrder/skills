@@ -106,3 +106,5 @@ Renames therefore appear as **two (or more) rows** in the intents table — one 
 ### Undetected renames
 
 If git did not detect the rename (similarity below `diff.renameLimit`), `ALL.patch` shows a delete + add. Treat the same way: one intent for the delete + new-file-skeleton, additional intents for the substantive content changes — and tell the user in the table that this pair is a rename git failed to auto-detect.
+
+**Annotate the table, not the commit body.** Do not write "git did not auto-detect this rename" into the rename commit's message body. Once the rename is split out into its own atomic commit (whose only content is `app.py => mathlib.py` with zero insertions/deletions), git almost always re-detects it as a 100% rename in `git log --stat` — making the warning false in the very history it tries to explain. The "undetected" classification is a property of the *dirty working tree*, not of the *committed history*. Surface it in the approval-gate table where it is true; omit it from the commit message where it would become misleading.
