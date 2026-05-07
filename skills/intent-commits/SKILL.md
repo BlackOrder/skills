@@ -1,6 +1,6 @@
 ---
 name: intent-commits
-description: Split a dirty working tree into atomic, intent-scoped commits via `git apply --cached`. Use when uncommitted changes mix multiple intents (feat, fix, refactor, docs, chore) — even in the same file or same hunk — and the user asks to "split this into commits", "separate these changes", "commit by intent", "make atomic commits", or "untangle this diff".
+description: Splits a dirty working tree into atomic, intent-scoped commits using `git apply --cached` on a split unified diff. Use when uncommitted changes mix multiple intents (feat, fix, refactor, docs) — even in the same file or hunk — or the user asks to split into commits, commit by intent, make atomic commits, or untangle a diff.
 ---
 
 # intent-commits
