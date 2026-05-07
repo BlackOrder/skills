@@ -1,6 +1,6 @@
 ---
 name: git-split
-description: 'Stage and commit a mixed working tree as multiple intent-scoped commits (feature, bugfix, refactor, docs, chore) using `git apply --cached` on split unified diffs, with a mandatory user-approval step before any commit is made. Use when the working tree contains unrelated changes — even multiple intents in the same file or same hunk — and the user asks to "split this into commits", "separate these changes", "commit by intent", "stage by feature/bugfix/refactor", "make atomic commits", "untangle this diff", or "commit only the bugfix part". Avoids the brittle `git add -p` TTY workflow and the destructive "revert files and reapply" routine. Works on every agent platform (Claude, Copilot, Antigravity, Cursor, Codex, etc.) — relies only on `git`, `git apply`, and a text patch file. No helper scripts.'
+description: Split a dirty working tree into atomic, intent-scoped commits via `git apply --cached`. Use when uncommitted changes mix multiple intents (feat, fix, refactor, docs, chore) — even in the same file or same hunk — and the user asks to "split this into commits", "separate these changes", "commit by intent", "make atomic commits", or "untangle this diff".
 ---
 
 # git-split
