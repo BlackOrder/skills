@@ -39,9 +39,10 @@ One skill per folder under `skills/`. Each skill is self-contained — the goal 
 
 ## Current skills
 
-| Skill                                            | Purpose                                                                                                                                                                                                                                  |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [intent-commits](skills/intent-commits/SKILL.md) | Split a mixed working tree into atomic, intent-scoped commits using `git apply --cached --recount` on split unified diffs. Mandatory user-approval gate; Conventional Commits enforced; renames committed separately from content edits. |
+| Skill                                            | Purpose                                                                                                                                                                                                                                                     |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [intent-commits](skills/intent-commits/SKILL.md) | Split a mixed working tree into atomic, intent-scoped commits using `git apply --cached --recount` on split unified diffs. Mandatory user-approval gate; Conventional Commits enforced; renames committed separately from content edits.                    |
+| [freelance-hub](skills/freelance-hub/SKILL.md)   | Solo-freelancer business controller spanning Zoho Invoice (billing, payments, estimates, expenses, credit notes, recurring invoices) and GitHub (milestones, issues, projects) via an MCP server. 40 tools across 5 layers with persistent business memory. |
 
 ## Installation paths consumers will use
 
